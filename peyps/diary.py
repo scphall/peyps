@@ -50,7 +50,7 @@ class Diary(object):
         self.read()
         return self
 
-    def __exit__(self):
+    def __exit__(self, type, value, tb):
         self.write()
 
     def remove(self, hash):
@@ -60,8 +60,6 @@ class Diary(object):
     def df(self):
         if self._diary is not None:
             df = pd.DataFrame.from_dict(self._diary).T
-            #df['dt'] = pd.to_datetime(
-                #df[Names.date].str.cat(df[Names.time], sep=' '))
             df[Names.date] = pd.to_datetime(df[Names.date]).dt.date
             df[Names.time] = pd.to_datetime(df[Names.time])
             df = df.sort_values(Names.time)
@@ -81,26 +79,37 @@ class Diary(object):
             date_dict[date] = sorted(v, key=lambda x: x[Names.time])
         return date_dict
 
-    def display(self, df=None):
+    @staticmethod
+    def _stdout_row(hash, row):
+        time_str = '{:%H:%M}'.format(row[Names.time])
+        head = '{time}{fill}{hash}'.format(
+            time=time_str,
+            fill=' ' * (WIDTH - len(time_str) - len(hash)),
+            hash=hash,
+        )
+        stdout.write(
+            '{head}\n{note}\n\n'.format(
+                head=head,
+                note=textwrap.fill(row[Names.note], width=WIDTH),
+            )
+        )
+
+    def burn(self, hash):
+        entry = self._diary.pop(hash)
+        stdout.write('Removed diary entry {}'.format(hash))
+        Diary._stdout_row(hash, entry)
+
+    def display(self, df=None, n=None):
         if df is None:
             df = self.df
+        if n is not None:
+            df = df.tail(n)
         gb = df.groupby(Names.date)
         for date, df in gb:
             date_str = '{:%Y-%m-%d (%a)}'.format(date)
             stdout.write('\n{}\n{}\n'.format(date_str, '=' * len(date_str)))
-            for h, row in df.iterrows():
-                time_str = '{:%H:%M}'.format(row[Names.time])
-                head = '{time}{fill}{hash}'.format(
-                    time=time_str,
-                    fill=' ' * (WIDTH - len(time_str) - len(h)),
-                    hash=h,
-                )
-                stdout.write(
-                    '{head}\n{note}\n\n'.format(
-                        head=head,
-                        note=textwrap.fill(row[Names.note], width=WIDTH),
-                    )
-                )
+            for h_row in df.iterrows():
+                Diary._stdout_row(*h_row)
 
 
 
