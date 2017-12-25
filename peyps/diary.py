@@ -6,10 +6,19 @@ import json
 import uuid
 import pandas as pd
 from collections import defaultdict
-from datetime import datetime
+import datetime as dt
 
 
 WIDTH = 80
+
+
+RED = u'\u001b[31;1m'
+GREEN = u'\u001b[32;1m'
+YELLOW = u'\u001b[33;1m'
+BLUE = u'\u001b[34;1m'
+MAGENTA = u'\u001b[35;1m'
+CYAN = u'\u001b[36;1m'
+RESET = u'\u001b[0m'
 
 
 class Names(object):
@@ -18,6 +27,18 @@ class Names(object):
     tags = 'tags'
     note = 'note'
     hash = 'hash'
+
+
+def red(text):
+    return '{}{}{}'.format(RED, text, RESET)
+
+
+def yellow(text):
+    return '{}{}'.format(YELLOW, text)
+
+
+def reset(text):
+    return RESET
 
 
 class Diary(object):
@@ -29,7 +50,7 @@ class Diary(object):
                 json.dump({}, f)
         self._diary = {}
 
-    def read(self):
+    def open(self):
         with open(self.path, 'r') as f:
             self._diary.update(json.load(f))
 
@@ -38,16 +59,17 @@ class Diary(object):
             json.dump(self._diary, f)
 
     def add(self, note, ds=None):
-        time = datetime.now()
+        time = dt.datetime.now()
         self._diary[uuid.uuid4().hex[:8]] = {
             Names.date: str(time.date() if ds is None else ds),
-            Names.tags: re.findall(r'#(\w+)', note),
+            Names.tags: list(set(re.findall(r'#(\w+)', note))),
             Names.note: note,
             Names.time: str(time),
         }
 
+
     def __enter__(self):
-        self.read()
+        self.open()
         return self
 
     def __exit__(self, type, value, tb):
@@ -56,42 +78,45 @@ class Diary(object):
     def remove(self, hash):
         self._diary.pop(hash)
 
+    def to_df(self, hash=None):
+        ddict = self._diary
+        df = pd.DataFrame.from_dict(ddict).T
+        df[Names.date] = pd.to_datetime(df[Names.date]).dt.date
+        df[Names.time] = pd.to_datetime(df[Names.time])
+        df = df.sort_values(Names.time)
+        if hash is not None:
+            if isinstance(hash, basestring):
+                hash = [hash]
+            df = df[df.index.isin(hash)]
+        return df
+
     @property
     def df(self):
         if self._diary is not None:
-            df = pd.DataFrame.from_dict(self._diary).T
-            df[Names.date] = pd.to_datetime(df[Names.date]).dt.date
-            df[Names.time] = pd.to_datetime(df[Names.time])
-            df = df.sort_values(Names.time)
-            return df
-
-    def _date_as_key(self):
-        date_dict = defaultdict(list)
-        for hash, v in self._diary.items():
-            date_dict[v[Names.date]].append({
-                Names.hash: hash,
-                Names.note: v[Names.note],
-                Names.time: v[Names.time],
-                Names.tags: v[Names.tags],
-            })
-
-        for date, v in date_dict.items():
-            date_dict[date] = sorted(v, key=lambda x: x[Names.time])
-        return date_dict
+            return self.to_df()
+        else:
+            raise ValueError('No diary to read yet!')
 
     @staticmethod
     def _stdout_row(hash, row):
-        time_str = '{:%H:%M}'.format(row[Names.time])
+        time_str = '{:%Y-%m-%d %H:%M}'.format(row[Names.time])
+        fill = ' ' * (WIDTH - len(time_str) - len(hash))
         head = '{time}{fill}{hash}'.format(
-            time=time_str,
-            fill=' ' * (WIDTH - len(time_str) - len(hash)),
-            hash=hash,
+            time=yellow(time_str),
+            fill=fill,
+            hash=red(hash),
         )
         stdout.write(
             '{head}\n{note}\n\n'.format(
                 head=head,
                 note=textwrap.fill(row[Names.note], width=WIDTH),
             )
+        )
+
+    def stdout_hash(self, hash):
+        Diary._stdout_row(
+            hash,
+            self.to_df(self._diary[hash]).iloc[0]
         )
 
     def burn(self, hash):
@@ -102,19 +127,25 @@ class Diary(object):
     def display(self, df=None, n=None):
         if df is None:
             df = self.df
+        df = df.sort_values(Names.time)
         if n is not None:
             df = df.tail(n)
-        gb = df.groupby(Names.date)
-        for date, df in gb:
-            date_str = '{:%Y-%m-%d (%a)}'.format(date)
-            stdout.write('\n{}\n{}\n'.format(date_str, '=' * len(date_str)))
-            for h_row in df.iterrows():
-                Diary._stdout_row(*h_row)
+        for h_row in df.iterrows():
+            Diary._stdout_row(*h_row)
 
-
-
-
-
-
-
-
+    def read(self, tags=None, date_from=None, date_upto=None,
+             head=None, tail=None):
+        df = self.df
+        if tags is not None:
+            tags = set([t.lstrip('#') for t in tags])
+            mask = df.tags.apply(lambda x: len(x) > len(set(x) - tags))
+            df = df[mask]
+        if date_from is not None:
+            df = df[df.date >= date_from]
+        if date_upto is not None:
+            df = df[df.date <= date_upto]
+        if head is not None:
+            df = df.head(head)
+        if tail is not None:
+            df = df.tail(tail)
+        self.display(df)
