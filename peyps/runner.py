@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 from collections import namedtuple
 
 from peyps.run_utils import ListToStringAction, ListToDateRangeAction
+from peyps.run_utils import DateRange
 
 MODE_ADD = 'add'
 MODE_READ = 'read'
@@ -38,6 +39,7 @@ def parser_args_read(parser):
         action=ListToDateRangeAction,
         nargs='+',
         help='',
+        default=DateRange(None, None),
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(

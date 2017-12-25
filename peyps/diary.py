@@ -24,6 +24,20 @@ class Diary(object):
                 json.dump({}, f)
         self._diary = {}
 
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.write()
+
+    @property
+    def df(self):
+        if self._diary is not None:
+            return self.to_df()
+        else:
+            raise ValueError('No diary to read yet!')
+
     def open(self):
         with open(self.path, 'r') as f:
             self._diary.update(json.load(f))
@@ -40,14 +54,7 @@ class Diary(object):
             Names.note: note,
             Names.time: str(time),
         }
-
-
-    def __enter__(self):
-        self.open()
-        return self
-
-    def __exit__(self, type, value, tb):
-        self.write()
+        self.display(n=1)
 
     def remove(self, hash):
         self._diary.pop(hash)
@@ -63,13 +70,6 @@ class Diary(object):
                 hash = [hash]
             df = df[df.index.isin(hash)]
         return df
-
-    @property
-    def df(self):
-        if self._diary is not None:
-            return self.to_df()
-        else:
-            raise ValueError('No diary to read yet!')
 
     @staticmethod
     def _stdout_row(hash, row):
@@ -94,9 +94,9 @@ class Diary(object):
         )
 
     def burn(self, hash):
-        entry = self._diary.pop(hash)
         stdout.write('Removed diary entry {}'.format(hash))
-        Diary._stdout_row(hash, entry)
+        Diary._stdout_row(hash, self.to_df(hash).iloc[0])
+        self._diary.pop(hash)
 
     def display(self, df=None, n=None):
         if df is None:
