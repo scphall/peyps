@@ -12,7 +12,7 @@ class Names(object):
     time = 'time'
     tags = 'tags'
     note = 'note'
-    hash = 'hash'
+    uuid = 'uuid'
 
 
 def red(text):

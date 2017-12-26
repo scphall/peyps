@@ -29,9 +29,8 @@ class Diary(object):
         return self
 
     def __exit__(self, type, value, tb):
-        self.write()
+        self.close()
 
-    @property
     def df(self):
         if self._diary is not None:
             return self.to_df()
@@ -42,43 +41,48 @@ class Diary(object):
         with open(self.path, 'r') as f:
             self._diary.update(json.load(f))
 
-    def write(self):
+    def close(self):
         with open(self.path, 'w') as f:
-            json.dump(self._diary, f)
+            json.dump(self._diary, f, indent=4)
 
     def add(self, note, ds=None):
         time = dt.datetime.now()
-        self._diary[uuid.uuid4().hex[:8]] = {
+        if len(self._diary) == 0:
+            ind = 0
+        else:
+            ind = max(map(int, self._diary.keys())) + 1
+        self._diary['{:03}'.format(ind)] = {
             Names.date: str(time.date() if ds is None else ds),
             Names.tags: list(set(re.findall(r'#(\w+)', note))),
             Names.note: note,
             Names.time: str(time),
+            Names.uuid: uuid.uuid4().hex[8:]
         }
         self.display(n=1)
 
-    def remove(self, hash):
-        self._diary.pop(hash)
+    def remove(self, ind):
+        self._diary.pop(ind)
 
-    def to_df(self, hash=None):
+    def to_df(self, ind=None):
         ddict = self._diary
         df = pd.DataFrame.from_dict(ddict).T
         df[Names.date] = pd.to_datetime(df[Names.date]).dt.date
         df[Names.time] = pd.to_datetime(df[Names.time])
         df = df.sort_values(Names.time)
-        if hash is not None:
-            if isinstance(hash, basestring):
-                hash = [hash]
-            df = df[df.index.isin(hash)]
+        if ind is not None:
+            if isinstance(ind, basestring):
+                ind = [ind]
+            df = df[df.index.isin(ind)]
         return df
 
     @staticmethod
-    def _stdout_row(hash, row):
+    def _stdout_row(ind, row):
         time_str = '{:%Y-%m-%d %H:%M}'.format(row[Names.time])
-        fill = ' ' * (WIDTH - len(time_str) - len(hash))
-        head = '{time}{fill}{hash}'.format(
+        fill = ' ' * (WIDTH - len(time_str) - len(ind))
+        head = '{time}{fill}{ind}'.format(
             time=yellow(time_str),
             fill=fill,
-            hash=red(hash),
+            ind=red(ind),
         )
         stdout.write(
             '{head}\n{note}\n\n'.format(
@@ -87,20 +91,20 @@ class Diary(object):
             )
         )
 
-    def stdout_hash(self, hash):
+    def stdout_ind(self, ind):
         Diary._stdout_row(
-            hash,
-            self.to_df(self._diary[hash]).iloc[0]
+            ind,
+            self.to_df(self._diary[ind]).iloc[0]
         )
 
-    def burn(self, hash):
-        stdout.write('Removed diary entry {}'.format(hash))
-        Diary._stdout_row(hash, self.to_df(hash).iloc[0])
-        self._diary.pop(hash)
+    def burn(self, ind):
+        stdout.write('Removed diary entry {}'.format(ind))
+        Diary._stdout_row(ind, self.to_df(ind).iloc[0])
+        self._diary.pop(ind)
 
     def display(self, df=None, n=None):
         if df is None:
-            df = self.df
+            df = self.df()
         df = df.sort_values(Names.time)
         if n is not None:
             df = df.tail(n)
@@ -109,7 +113,7 @@ class Diary(object):
 
     def read(self, tags=None, date_from=None, date_upto=None,
              head=None, tail=None):
-        df = self.df
+        df = self.df()
         if tags is not None:
             tags = set([t.lstrip('#') for t in tags])
             mask = df.tags.apply(lambda x: len(x) > len(set(x) - tags))

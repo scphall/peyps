@@ -1,20 +1,23 @@
 import argparse
 import re
-from peyps.diary import Diary
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
 from collections import namedtuple
+from datetime import date, timedelta
 
+from dateutil.relativedelta import relativedelta
+
+from peyps.diary import Diary
 from peyps.run_utils import ListToStringAction, ListToDateRangeAction
 from peyps.run_utils import DateRange
 
 MODE_ADD = 'add'
 MODE_READ = 'read'
 MODE_BURN = 'burn'
+MODE_INFO = 'info'
 RUNNER_HELP = {
     MODE_ADD: 'Add entry to diary',
     MODE_READ: 'Show diary',
     MODE_BURN: 'Burn entry',
+    MODE_INFO: 'TODO',
 }
 
 
@@ -58,7 +61,7 @@ def parser_args_read(parser):
 
 def parser_args_burn(parser):
     parser.add_argument(
-        'hash',
+        'index',
         type=str,
         help='',
     )
@@ -76,6 +79,8 @@ def parse_args():
     parser_args_add(parsers[MODE_ADD])
     parser_args_read(parsers[MODE_READ])
     parser_args_burn(parsers[MODE_BURN])
+    import argcomplete
+    argcomplete.autocomplete(parser)
     return parser.parse_args()
 
 
@@ -93,4 +98,4 @@ def run():
                 date_upto=args.date.upto,
             )
         elif args.mode == MODE_BURN:
-            d.burn(args.hash)
+            d.burn(args.index)
