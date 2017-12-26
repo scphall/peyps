@@ -1,18 +1,44 @@
 import argparse
 import re
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
 from collections import namedtuple
+from datetime import date, timedelta, datetime
+from dateutil.relativedelta import relativedelta
 
 
 DateRange = namedtuple('DateRange', ['from_', 'upto'])
 
 
 def makedate(date_str):
-    return datetime.strptime(date_str, '%Y-%m-%d')
+    """
+    Make a `datetime.date` from an ISO formatted string.
+
+    Parameters
+    ==========
+    date_str: str
+        String representing an ISO format date.
+
+    Returns
+    =======
+    datetime.date
+    """
+    return datetime.strptime(date_str, '%Y-%m-%d').date()
 
 
 def str2date(date_str):
+    """
+    From a string indicating either an absolute or relative
+    date string, create a `datetime.date`.
+
+    Parameters
+    ==========
+    date_str: str
+        String representing an ISO format date, or a relative
+        date with respect to today.
+
+    Returns
+    =======
+    datetime.date
+    """
     n_months, n_weeks, n_days = 0, 0, 0
     re_date = re.match('\d{4}-\d{2}-\d{2}', date_str)
     if re_date is not None:
@@ -39,6 +65,11 @@ def str2date(date_str):
 
 
 class ListToDateRangeAction(argparse.Action):
+    """
+    Slightly imperfect Action class to turn a list (nargs='+' must
+    be implemented) of 1 or 2 input variables into 2 datetimes (or None)
+    in the form of a DateRange namedtuple.
+    """
     def __init__(self, option_strings, dest, **kwargs):
         super(ListToDateRangeAction, self).__init__(
             option_strings, dest, **kwargs)
@@ -58,6 +89,10 @@ class ListToDateRangeAction(argparse.Action):
 
 
 class ListToStringAction(argparse.Action):
+    """
+    Slightly imperfect Action class to turn a list (nargs='+' must
+    be implemented) into a single string.
+    """
     def __init__(self, option_strings, dest, **kwargs):
         super(ListToStringAction, self).__init__(
             option_strings, dest, **kwargs)
