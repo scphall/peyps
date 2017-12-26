@@ -1,3 +1,12 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import sys
+import logging
+
+
+_logger = logging.getLogger(__name__)
+
+
 RED = u'\u001b[31;1m'
 GREEN = u'\u001b[32;1m'
 YELLOW = u'\u001b[33;1m'
@@ -25,3 +34,18 @@ def yellow(text):
 
 def reset(text):
     return RESET
+
+
+def setup_logging(loglevel):
+    """Setup basic logging
+
+    Args:
+      loglevel (int): minimum loglevel for emitting messages
+    """
+    logformat = "[%(asctime)s] %(levelname)-7s:%(name)-10s| %(message)s "
+    logging.basicConfig(
+        level=loglevel,
+        stream=sys.stdout,
+        format=logformat,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
